@@ -347,7 +347,6 @@ function qbcirc()
  end
 
  function c.get_node_gate_part(row_n,col_n)
-  printh("in get_node_gate_part")
   local req_node=c._nodes[row_n][col_n]
   if req_node and
     req_node.get_node_type()
@@ -405,8 +404,7 @@ function qbcirc()
    for ci=1,c._ncols do
     local nd=c._nodes[ri][ci]
     if nd then
-     printh("a node is present")
-     printh(""..nd.get_node_type())
+     --printh("node is present"..nd.get_node_type())
      if nd.get_node_type()==
        node_types.iden then
       --todo
@@ -542,66 +540,39 @@ end
 
 -----begin misc functions------
 function make_circs()
- local cc=qbcirc()
- --local nds=cc.get_nodes()
+ local circ=qbcirc()
+ 
  local nd=qbnode()
-
  nd.new(node_types.h)
- cc.set_node(1,1,nd)
- nd=qbnode()
+ circ.set_node(1,1,nd)
  nd.new(node_types.x,0,0)
- cc.set_node(2,2,nd)
- local qc=cc.comp_circ()
-
- --[[
- local qc = quantumcircuit()
- qc.set_registers(2)
- qc.x(1)
- qc.h(1)
- ]]
-
- --[[
- local meas = quantumcircuit()
- meas.set_registers(2,2)
-
- meas.measure(0,0)
- meas.measure(1,1)
-
- qc.add_circuit(meas)
- ]]
-
- printh("qc:"..qc._n)
- printh("\nthe sv is\n")
+ circ.set_node(2,2,nd)
+ local qc=circ.comp_circ()
 
  local res = simulate(qc,"statevector")
- printh("in main, #res: "..#res)
- for idx, amp in pairs(res) do
-  printh("("..-amp[2].."+"..-amp[1].."i)")
- end
+ prt_sv_results(res)
 
- --[[
- local res = simulate(qc,"counts",8)
- for string, counts in pairs(res) do
-  printh(""..counts..":"..string)
- end
- ]]
-
- cc.set_pos(2,12)
- local tx,ty=cc.get_pos()
+ circ.set_pos(2,12)
+ local tx,ty=circ.get_pos()
  printh("tx:"..tx.." ty:"..ty)
- cc.prt()
- qbcircs[1]=cc
+ circ.prt()
+ qbcircs[1]=circ
 
---[[
- local cd=qbcirc()
- cd.set_pos(19,12)
- local tx,ty=cd.get_pos()
+ circ=qbcirc()
+ circ.set_pos(19,12)
+ local tx,ty=circ.get_pos()
  printh("tx:"..tx.." ty:"..ty)
 
- cd.prt()
- cd.comp_circ()
- qbcircs[2]=cd
-]]
+ circ.prt()
+ circ.comp_circ()
+ qbcircs[2]=circ
+end
+
+function prt_sv_results(res)
+  printh("statevector:")
+  for idx, amp in pairs(res) do
+    printh("("..-amp[2].."+"..-amp[1].."i)")
+   end  
 end
 -----begin misc functions------
 
