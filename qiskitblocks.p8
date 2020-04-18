@@ -6,6 +6,14 @@ __lua__
 
 qbcircs={} 
 
+--player pos on circuits
+sel_circ_idx=0
+sel_circ_row=0
+sel_circ_col=0
+sel_circ=nil
+
+
+
 function _init()
  map_setup()
  text_setup()
@@ -20,9 +28,16 @@ end
 function _update()
  if (not game_over) then
   if (not active_text) then
-  	update_map()
-  	move_player()
-  	check_win_lose()
+   update_map()
+   move_player()
+   check_win_lose()
+   if sel_circ and 
+    sel_circ.is_dirty() then
+    sel_circ.set_dirty(false)
+    local qc=sel_circ.comp_circ()
+    local res = simulate(qc,"statevector")
+    prt_sv_results(res)    
+   end  
   end
  else
   if (btnp(❎)) extcmd("reset")
@@ -33,10 +48,9 @@ function _draw()
  cls()
  if (not game_over) then
   draw_map()
-  --draw_circs()
+  draw_circs()
   draw_player()
   draw_text()
-  draw_circs()
   if (btn(🅾️)) show_inventory()
   if (btn(❎)) hnd_inp_x()
  else
@@ -138,6 +152,8 @@ function move_player()
  if (can_move(newx,newy)) then
   p.x=mid(0,newx,127)
   p.y=mid(0,newy,63)
+
+  update_sel_circ_info()
  else
   sfx(0)
  end
@@ -263,7 +279,7 @@ spr_tile.ket_00=6
 node_types={
  empty=72,
  iden=0,
- x=102,
+ x=66,
  y=2,
  z=3,
  s=4,
@@ -284,20 +300,26 @@ qbcirc={}
 
 function qbcirc()
  local c={}
- c._nrows=2
- c._ncols=4
  c._nodes={}
- c._dirty=true
+ --c._nrows=0
+ --c._ncols=0
 
- for ri = 1, c._nrows do
-  local row = {}
-  c._nodes[ri] = row
-  for ci = 1, c._ncols do
-   local nd=qbnode()
-   nd.new(node_types.empty)
-   row[ci]=nd
+ local function new(nrows,ncols)
+  c._nrows=nrows or 2
+  c._ncols=ncols or 4
+  c._dirty=true
+  for ri = 1, c._nrows do
+   local row = {}
+   c._nodes[ri] = row
+   for ci = 1, c._ncols do
+    local nd=qbnode()
+    nd.new(node_types.empty)
+    row[ci]=nd
+   end
   end
- end
+ end 
+ c.new=new
+
 
  function c.prt()
   for ri=1, c._nrows do
@@ -309,11 +331,21 @@ function qbcirc()
   end
  end
 
+ function c.nrows()
+  return c._nrows
+ end
+
+ function c.ncols()
+  return c._ncols
+ end
+
+ --q pos?
  function c.set_pos(mx,my)
   c._mx=mx
   c._my=my
  end
 
+ --q pos?
  function c.get_pos()
   return c._mx,c._my
  end
@@ -333,6 +365,11 @@ function qbcirc()
 
  function c.set_node(row_n,
    col_n,grid_node)
+  if row_n<=0 or row_n>c._nrows
+    or col_n<=0 or col_n>c._ncols then
+   return
+  end 
+  
   local node=qbnode()
   node.new(grid_node.get_node_type(),
     grid_node.get_rads(),
@@ -541,6 +578,7 @@ end
 -----begin misc functions------
 function make_circs()
  local circ=qbcirc()
+ circ.new(2,4)
  
  local nd=qbnode()
  nd.new(node_types.h)
@@ -559,7 +597,8 @@ function make_circs()
  qbcircs[1]=circ
 
  circ=qbcirc()
- circ.set_pos(19,12)
+ circ.new(3,5)
+ circ.set_pos(18,11)
  local tx,ty=circ.get_pos()
  printh("tx:"..tx.." ty:"..ty)
 
@@ -571,25 +610,53 @@ end
 function prt_sv_results(res)
   printh("statevector:")
   for idx, amp in pairs(res) do
-    printh("("..-amp[2].."+"..-amp[1].."i)")
+    printh("("..amp[1].."+"..amp[2].."i)")
    end  
 end
 -----begin misc functions------
 
 
 -----begin handle player input------
-function get_sel_node_gate_part(qbcirc)
- return qbcirc.get_node_gate_part(2,1)
+function update_sel_circ_info()
+ for circ_idx=1, #qbcircs do
+  local circ=qbcircs[circ_idx]
+  local cpx, cpy = circ.get_pos()
+  if newx>=cpx+2 and 
+    newx<cpx+(circ.ncols()+1)*2 and
+    newy<=cpy-1 and
+    newy>cpy-(circ.nrows())*2-1 then
+   sel_circ_idx=circ_idx
+   sel_circ_row=circ.nrows()-flr((cpy-newy-1)/2)
+   sel_circ_col=flr((newx-cpx)/2) 
+   sel_circ=circ
+   return
+  end
+  sel_circ_idx=0
+  sel_circ_row=0
+  sel_circ_col=0
+  sel_circ=nil
+ end
+end
+
+function get_sel_node_gate_part()
+ if sel_circ then
+  return sel_circ.get_node_gate_part(
+    sel_circ_row,sel_circ_col)
+ else
+  return node_types.empty
+ end 
 end
 
 function hnd_inp_x()
- local qbcirc=qbcircs[1]
- local sngp=get_sel_node_gate_part(qbcirc)
+ local sngp=get_sel_node_gate_part()
  if sngp==node_types.empty then
   local nd=qbnode()
   nd.new(node_types.x,0,0)
-  qbcirc.set_node(2,1,nd)
-  qbcirc.comp_circ()
+  if sel_circ then
+   sel_circ.set_node(sel_circ_row,
+                  sel_circ_col,nd)
+   sel_circ.set_dirty(true)
+  end
  end
 end
 -----end handle player input------
@@ -608,7 +675,7 @@ function draw_circs()
    --spr(spr_tile.ket_0+(#nds[ri]-ci)*2,
    spr(spr_tile.ket_0+(#nds-ri)*2,
      mx*8,
-     (my-6+ri*2)*8,2,2)
+     (my-((qbcirc.nrows()+1)*2)+ri*2)*8,2,2)
 
    for ci = 1, #nds[ri] do
     spr(spr_tile.ket_00+(ci-1)*2,
@@ -617,7 +684,7 @@ function draw_circs()
 
     spr(nds[ri][ci].get_node_type(),
       (mx+ci*2)*8,
-      (my-6+ri*2)*8,2,2)
+      (my-((qbcirc.nrows()+1)*2)+ri*2)*8,2,2)
    end
   end
  end
@@ -951,13 +1018,13 @@ aaa99aaa151111517555575555555557999997777799999966166661666666666616666166666666
 71777177771777177177717777177717717771777177771771777777771777177777777777777777000000000000000000000000000000000000000000000000
 71777177771777177177771771777717717777171777771771777777717777177777777177777777000000000000000000000000000000000000000000000000
 11777111111777111177777117777711117777717777771111777777177777111111111111111111000000000000000000000000000000000000000000000000
-71777177771777177077777007777707707777707777770771777771777777177777777177777777000000000000000000000000000000000000000000000000
-71777177771777177077770770777707707777707777770771777717777777177777777777777777000000000000000000000000000000000000000000000000
-71777177771777177077707777077707707777707777770771777177777777177777777777777777000000000000000000000000000000000000000000000000
-71777177771777177077707777077707707777707777770771777111111777177777777777777777000000000000000000000000000000000000000000000000
-71777777777777177077777777777707707777777777770771777777777777177777777777777777000000000000000000000000000000000000000000000000
-71777777777777177077777777777707707777777777770771777777777777177777777777777777000000000000000000000000000000000000000000000000
-71111111111111177000000000000007700000000000000771111111111111177777777777777777000000000000000000000000000000000000000000000000
+71777177771777177177777117777717717777707777771771777771777777177777777177777777000000000000000000000000000000000000000000000000
+71777177771777177177771771177717717777707777771771777717777777177777777777777777000000000000000000000000000000000000000000000000
+71777177771777177177717777177717717777707777771771777177777777177777777777777777000000000000000000000000000000000000000000000000
+71777177771777177177717777177717717777707777771771777111111777177777777777777777000000000000000000000000000000000000000000000000
+71777777777777177177777777777717717777777777771771777777777777177777777777777777000000000000000000000000000000000000000000000000
+71777777777777177177777777777717717777777777771771777777777777177777777777777777000000000000000000000000000000000000000000000000
+71111111111111177111111111111117711111111111111771111111111111177777777777777777000000000000000000000000000000000000000000000000
 77777777777777777777777777777777777777777777777777777777777777777777777777777777000000000000000000000000000000000000000000000000
 77777777777777777777777177777777777777777777777777777771777777777777777777777777000000000000000000000000000000000000000000000000
 77777777777777777777777177777777777777777777777777777771777777777111111111111117000000000000000000000000000000000000000000000000
