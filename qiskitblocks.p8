@@ -11,7 +11,7 @@ sel_circ_idx=0
 sel_circ_row=0
 sel_circ_col=0
 sel_circ=nil
-sel_statevector={}
+sel_sv={}
 
 
 
@@ -51,6 +51,7 @@ function _draw()
  if (not game_over) then
   draw_map()
   draw_circs()
+  draw_probs()
   draw_player()
   draw_text()
   --if (btn(🅾️)) show_inventory()
@@ -668,7 +669,7 @@ function compute_statevector(res)
       amp[1],amp[2])   
     printh(statevector[idx].r.."+"..statevector[idx].i.."i")
   end
-  sel_statevector=statevector  
+  sel_sv=statevector  
 end
 
 --[[
@@ -826,14 +827,38 @@ function draw_circs()
  end
 end
 
---[[
 function draw_probs(res)
-  for idx, amp in pairs(res) do
-    printh("("..amp[1].."+"..amp[2].."i)")
+  if not sel_circ or not sel_sv then
+    return
+  end
 
-   end  
+  local liq_levs=7
+  local pi_rads=8
+  for col_num=1,min(#sel_sv, sel_circ.ncols()) do
+    local amp = sel_sv[col_num]
+    local phase_rad = 
+      (complex.polar_radians(amp) + 
+      math.pi*2)%(math.pi*2)
+    local p8_rads=0
+    local thresh=0.0001
+    if abs(phase_rad-0)>thresh and
+        abs(phase_rad-math.pi*2)>thresh then
+      p8_rads = flr(phase_rad*pi_rads/math.pi+0.5)
+      --printh("phase_rad: "..phase_rad..", p8_rads: "..p8_rads)   
+    end
+    if p8_rads<1 then
+      p8_rads=1
+    elseif p8_rads>pi_rads*2 then
+      p8_rads=pi_rads*2
+    end
+
+    local prob=(complex.abs(sel_sv[col_num]))^2
+    local scaled_prob=flr(prob*liq_levs)
+    
+  end
+    
+
 end
-]]
 
 ----begin complex module----
 function create_complex()
@@ -872,12 +897,12 @@ function create_complex()
   end
 
   function complex.nearly_equals (c1, c2)
-      return math.abs(c1.r - c2.r) < 0.001 and
-              math.abs(c1.i - c2.i) < 0.001
+      return abs(c1.r - c2.r) < 0.001 and
+              abs(c1.i - c2.i) < 0.001
   end
 
   function complex.abs (c)
-      return math.sqrt(c.r^2 + c.i^2)
+      return sqrt(c.r^2 + c.i^2)
   end
 
   function complex.tostring (c)
@@ -885,7 +910,7 @@ function create_complex()
   end
 
   function complex.polar_radians(c)
-      return math.atan2( c.i, c.r )
+      return atan2( c.i, c.r )
   end
 
   return complex
