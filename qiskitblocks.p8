@@ -11,6 +11,7 @@ sel_circ_idx=0
 sel_circ_row=0
 sel_circ_col=0
 sel_circ=nil
+sel_statevector={}
 
 
 
@@ -37,8 +38,7 @@ function _update()
     sel_circ.set_dirty(false)
     local qc=sel_circ.comp_circ()
     local res = simulate(qc,"statevector")
-    --prt_sv_results(res)
-    draw_probs(res)    
+    compute_statevector(res)
    end  
   end
  else
@@ -631,8 +631,9 @@ end
 
 function make_circs()
  local circ=qbcirc()
+
+--test circuit 1
  circ.new(2,4)
- 
  local nd=qbnode()
  nd.new(node_types.h)
  circ.set_node(1,1,nd)
@@ -640,15 +641,13 @@ function make_circs()
  circ.set_node(2,2,nd)
  local qc=circ.comp_circ()
 
- --local res = simulate(qc,"statevector")
- --prt_sv_results(res)
-
  circ.set_pos(2,10)
  local tx,ty=circ.get_pos()
  printh("tx:"..tx.." ty:"..ty)
  circ.prt()
  qbcircs[1]=circ
 
+ --test circuit 2
  circ=qbcirc()
  circ.new(3,5)
  circ.set_pos(18,11)
@@ -658,6 +657,18 @@ function make_circs()
  circ.prt()
  circ.comp_circ()
  qbcircs[2]=circ
+end
+
+function compute_statevector(res)
+  local statevector = {}
+  printh("statevector:")
+  for idx, amp in pairs(res) do
+    printh("("..amp[1].."+"..amp[2].."i)")
+    statevector[idx] = complex.new(
+      amp[1],amp[2])   
+    printh(statevector[idx].r.."+"..statevector[idx].i.."i")
+  end
+  sel_statevector=statevector  
 end
 
 --[[
@@ -815,13 +826,73 @@ function draw_circs()
  end
 end
 
+--[[
 function draw_probs(res)
   for idx, amp in pairs(res) do
     printh("("..amp[1].."+"..amp[2].."i)")
 
    end  
 end
+]]
 
+----begin complex module----
+function create_complex()
+
+  local complex = {}  -- the module
+
+  -- creates a new complex number
+  local function new (r, i)
+      return {r=r, i=i}
+  end
+
+  complex.new = new        -- add 'new' to the module
+
+  -- constant 'i'
+  complex.i = new(0, 1)
+
+  function complex.add (c1, c2)
+      return new(c1.r + c2.r, c1.i + c2.i)
+  end
+
+  function complex.sub (c1, c2)
+      return new(c1.r - c2.r, c1.i - c2.i)
+  end
+
+  function complex.mul (c1, c2)
+      return new(c1.r*c2.r - c1.i*c2.i, c1.r*c2.i + c1.i*c2.r)
+  end
+
+  local function inv (c)
+      local n = c.r^2 + c.i^2
+      return new(c.r/n, -c.i/n)
+  end
+
+  function complex.div (c1, c2)
+      return complex.mul(c1, inv(c2))
+  end
+
+  function complex.nearly_equals (c1, c2)
+      return math.abs(c1.r - c2.r) < 0.001 and
+              math.abs(c1.i - c2.i) < 0.001
+  end
+
+  function complex.abs (c)
+      return math.sqrt(c.r^2 + c.i^2)
+  end
+
+  function complex.tostring (c)
+      return string.format("(%g,%g)", c.r, c.i)
+  end
+
+  function complex.polar_radians(c)
+      return math.atan2( c.i, c.r )
+  end
+
+  return complex
+
+end
+complex = create_complex()
+----end complex module----
 
 -->8
 -- this code is part of qiskit.
