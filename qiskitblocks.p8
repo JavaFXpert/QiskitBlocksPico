@@ -39,6 +39,7 @@ function _update()
     local qc=sel_circ.comp_circ()
     local res = simulate(qc,"statevector")
     compute_statevector(res)
+    sel_circ.prt()
    end  
   end
  else
@@ -55,8 +56,8 @@ function _draw()
   draw_player()
   draw_text()
   --if (btn(🅾️)) show_inventory()
-  if (btn(❎)) hnd_input()
-  if (btn(🅾️)) hnd_inp_del()
+  if (btnp(❎)) hnd_input()
+  if (btnp(🅾️)) hnd_inp_del()
  else
   draw_win_lose()
  end
@@ -320,6 +321,18 @@ node_types={
  meas=104
 }
 
+node_tiles={
+  empty=72,
+  x=66,
+  low_not=102,
+  high_not=100,
+  y=68,
+  z=70,
+  h=64,
+  low_ctrl=68,
+  high_ctrl=96
+}
+
 tool_types={
  none=0, 
  x=1,
@@ -395,7 +408,7 @@ function qbcirc()
   for row=1, c._nrows do
    col[row]=c._nodes[row][col_n]
   end
-  printh("#col:"..#col)
+  --printh("#col:"..#col)
   return col
  end
 
@@ -542,7 +555,7 @@ function qbcirc()
       if nd.get_ctrla()>0 then
        --todo ctrl-h
       else
-       printh("i found an h")
+       --printh("i found an h")
        qc.h(ri-1)
       end
      elseif nd.get_node_type()==
@@ -597,6 +610,10 @@ function qbnode()
 
  function n.get_ctrla()
   return n._ctrla
+ end
+
+ function n.set_ctrla(row)
+  n._ctrla=row
  end
 
  function n.get_ctrlb()
@@ -669,7 +686,7 @@ function make_circs()
 
  circ.set_pos(2,10)
  local tx,ty=circ.get_pos()
- printh("tx:"..tx.." ty:"..ty)
+ --printh("tx:"..tx.." ty:"..ty)
  circ.prt()
  qbcircs[1]=circ
 
@@ -678,7 +695,7 @@ function make_circs()
  circ.new(3,5)
  circ.set_pos(18,11)
  local tx,ty=circ.get_pos()
- printh("tx:"..tx.." ty:"..ty)
+ --printh("tx:"..tx.." ty:"..ty)
 
  circ.prt()
  circ.comp_circ()
@@ -689,7 +706,6 @@ function compute_statevector(res)
   local statevector = {}
   printh("statevector:")
   for idx, amp in pairs(res) do
-    printh("("..amp[1].."+"..amp[2].."i)")
     statevector[idx] = complex.new(
       amp[1],amp[2])   
     printh(statevector[idx].r.."+"..statevector[idx].i.."i")
@@ -747,6 +763,35 @@ function get_sel_node_gate_part()
  end 
 end
 
+function place_ctrl(gate_row,cand_row)
+  if cand_row<1 or 
+      cand_row>sel_circ.nrows() then
+    return 0    
+  end
+  cand_row_gate_part= 
+    sel_circ.get_node_gate_part(
+      cand_row,sel_circ_col)
+  if cand_row_gate_part==
+      node_types.empty or
+      cand_row_gate_part==
+      node_types.trace then
+    nd=sel_circ.get_node(
+        gate_row,sel_circ_col)
+    nd.set_ctrla(cand_row)
+    sel_circ.set_node(gate_row,
+        sel_circ_col,nd)
+    local emp_nd=qbnode()
+    emp_nd.new(node_types.empty)
+    sel_circ.set_node(cand_row,
+        sel_circ_col,emp_nd)
+        printh("placed ctrl on row:"..cand_row)    
+    sel_circ.set_dirty(true)
+    return cand_row
+  else
+    printh("can't place ctrl on row:"..cand_row)
+  end
+end
+
 function hnd_inp_x()
  local sngp=get_sel_node_gate_part()
  if sngp==node_types.empty then
@@ -800,7 +845,33 @@ function hnd_inp_h()
 end 
 
 function hnd_inp_ctrl()
- --todo: fill in
+  local sngp=get_sel_node_gate_part()
+  if sngp==node_types.x or
+      sngp==node_types.y or 
+      sngp==node_types.z or
+      sngp==node_types.h then
+    local nd=sel_circ.get_node(
+      sel_circ_row,sel_circ_col)
+    if nd.get_ctrla()>0 then
+      o_ctrla=nd.get_ctrla()
+      nd.set_ctrla(0)
+      sel_circ.set_node(
+        sel_circ_row,sel_circ_col,nd)
+      --todo: remove trace nodes
+    else
+      if sel_circ_row>0 then
+        if place_ctrl(sel_circ_row, 
+            sel_circ_row-1)==0 then
+          if sel_circ_row<sel_circ.nrows() then
+            if place_ctrl(sel_circ_row, 
+              sel_circ_row+1)==0 then
+              printh("can't place ctrl")  
+            end
+          end
+        end
+      end
+    end
+  end
 end 
   
 --todo: add logic for del ctrls
@@ -842,7 +913,28 @@ function draw_circs()
       (mx+ci*2)*8,
       (my+2)*8,2,2)
 
-    spr(nds[ri][ci].get_node_type(),
+    local nd=nds[ri][ci]
+    local nt=nd.get_node_type()
+    local tile=node_tiles.empty
+    if nt==node_types.x then
+      if nd.get_ctrla()>0 then
+        if ri>nd.get_ctrla() then
+          tile=node_tiles.low_not
+        else  
+          tile=node_tiles.high_not
+        end
+      else
+        tile=node_tiles.x
+      end
+    elseif nt==node_types.y then
+      tile=node_tiles.y
+    elseif nt==node_types.z then
+      tile=node_tiles.z
+    elseif nt==node_types.h then
+      tile=node_tiles.h
+    end
+      
+    spr(tile,
       (mx+ci*2)*8,
       (my-((qbcirc.nrows()+1)*2)+ri*2)*8,2,2)
    end
@@ -864,7 +956,7 @@ function draw_probs(res)
 
   for col_num=1,min(#sel_sv, sel_circ.ncols()) do
     local amp = sel_sv[col_num]
-    printh(amp.r.."+"..amp.i.."i")
+    --printh(amp.r.."+"..amp.i.."i")
     local phase_rad = 
       (complex.polar_radians(amp) + 
       math.pi*2)%(math.pi*2)
@@ -875,7 +967,7 @@ function draw_probs(res)
         abs(phase_rad-math.pi*2)>thresh then
       p4_rads = flr(phase_rad*pi_rads/math.pi+0.5)
     end
-    printh("phase_rad: "..phase_rad..", p4_rads: "..p4_rads)   
+    --printh("phase_rad: "..phase_rad..", p4_rads: "..p4_rads)   
     if p4_rads<0 then
       p4_rads=0
     elseif p4_rads>pi_rads*2 then
