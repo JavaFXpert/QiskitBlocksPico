@@ -39,6 +39,7 @@ function _update()
     local qc=sel_circ.comp_circ()
     local res = simulate(qc,"statevector")
     compute_statevector(res)
+    sel_circ.prt()
    end  
   end
  else
@@ -320,6 +321,18 @@ node_types={
  meas=104
 }
 
+node_tiles={
+  empty=72,
+  x=66,
+  low_not=102,
+  high_not=100,
+  y=68,
+  z=70,
+  h=64,
+  low_ctrl=98,
+  high_ctrl=96
+}
+
 tool_types={
  none=0, 
  x=1,
@@ -456,12 +469,12 @@ function qbcirc()
   for ri=1, c._nrows do
    if ri~=ctrl_row_n then
     local oth_node=nodes_col[ri]
+    --printh("get_ctrl_gate_row, ri:"..ri..", oth_node:"..oth_node.get_node_type()) 
     if oth_node then
      if oth_node.get_ctrla()==
-       row_n or
-       oth_node.get_ctrlb()==
-       row_n then
+        ctrl_row_n then
       gate_row_n=ri
+      --printh("found gate")
      end
     end
    end
@@ -693,7 +706,6 @@ function compute_statevector(res)
   local statevector = {}
   printh("statevector:")
   for idx, amp in pairs(res) do
-    printh("("..amp[1].."+"..amp[2].."i)")
     statevector[idx] = complex.new(
       amp[1],amp[2])   
     printh(statevector[idx].r.."+"..statevector[idx].i.."i")
@@ -773,6 +785,7 @@ function place_ctrl(gate_row,cand_row)
     sel_circ.set_node(cand_row,
         sel_circ_col,emp_nd)
         printh("placed ctrl on row:"..cand_row)    
+    sel_circ.set_dirty(true)
     return cand_row
   else
     printh("can't place ctrl on row:"..cand_row)
@@ -900,7 +913,37 @@ function draw_circs()
       (mx+ci*2)*8,
       (my+2)*8,2,2)
 
-    spr(nds[ri][ci].get_node_type(),
+    local nd=nds[ri][ci]
+    local nt=qbcirc.get_node_gate_part(
+      ri,ci)
+    --local nt=nd.get_node_type()
+    local tile=node_tiles.empty
+    if nt==node_types.x then
+      if nd.get_ctrla()>0 then
+        if ri>nd.get_ctrla() then
+          tile=node_tiles.low_not
+        else  
+          tile=node_tiles.high_not
+        end
+      else
+        tile=node_tiles.x
+      end
+    elseif nt==node_types.y then
+      tile=node_tiles.y
+    elseif nt==node_types.z then
+      tile=node_tiles.z
+    elseif nt==node_types.h then
+      tile=node_tiles.h
+    elseif nt==node_types.ctrl then
+      if ri>qbcirc.get_ctrl_gate_row(
+        ri,ci) then
+        tile=node_tiles.low_ctrl
+      else  
+        tile=node_tiles.high_ctrl
+      end
+    end
+      
+    spr(tile,
       (mx+ci*2)*8,
       (my-((qbcirc.nrows()+1)*2)+ri*2)*8,2,2)
    end
