@@ -39,7 +39,6 @@ function _update()
     local qc=sel_circ.comp_circ()
     local res = simulate(qc,"statevector")
     compute_statevector(res)
-    sel_circ.prt()
    end  
   end
  else
@@ -319,18 +318,6 @@ node_types={
  ctrl=96,
  trace=12,
  meas=104
-}
-
-node_tiles={
-  empty=72,
-  x=66,
-  low_not=102,
-  high_not=100,
-  y=68,
-  z=70,
-  h=64,
-  low_ctrl=68,
-  high_ctrl=96
 }
 
 tool_types={
@@ -706,6 +693,7 @@ function compute_statevector(res)
   local statevector = {}
   printh("statevector:")
   for idx, amp in pairs(res) do
+    printh("("..amp[1].."+"..amp[2].."i)")
     statevector[idx] = complex.new(
       amp[1],amp[2])   
     printh(statevector[idx].r.."+"..statevector[idx].i.."i")
@@ -785,7 +773,6 @@ function place_ctrl(gate_row,cand_row)
     sel_circ.set_node(cand_row,
         sel_circ_col,emp_nd)
         printh("placed ctrl on row:"..cand_row)    
-    sel_circ.set_dirty(true)
     return cand_row
   else
     printh("can't place ctrl on row:"..cand_row)
@@ -913,28 +900,7 @@ function draw_circs()
       (mx+ci*2)*8,
       (my+2)*8,2,2)
 
-    local nd=nds[ri][ci]
-    local nt=nd.get_node_type()
-    local tile=node_tiles.empty
-    if nt==node_types.x then
-      if nd.get_ctrla()>0 then
-        if ri>nd.get_ctrla() then
-          tile=node_tiles.low_not
-        else  
-          tile=node_tiles.high_not
-        end
-      else
-        tile=node_tiles.x
-      end
-    elseif nt==node_types.y then
-      tile=node_tiles.y
-    elseif nt==node_types.z then
-      tile=node_tiles.z
-    elseif nt==node_types.h then
-      tile=node_tiles.h
-    end
-      
-    spr(tile,
+    spr(nds[ri][ci].get_node_type(),
       (mx+ci*2)*8,
       (my-((qbcirc.nrows()+1)*2)+ri*2)*8,2,2)
    end
